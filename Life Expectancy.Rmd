@@ -39,3 +39,38 @@ theme_set(theme_minimal())
 life_expectancy <- read_csv("Life Expectancy Data.csv")
 ```
 
+RQ: How has life expectancy changed over the years and what factors have contributed to this change?
+
+I. Intro & Background
+
+- Bullshit.
+
+II. Data
+
+- Source?
+- Variables used.
+
+III. Introductory Graph.
+
+- Average life expectancy by the year.
+
+IV. Map showing life expectancy by country.
+
+V. Effect of aclhohol consumption on life expectancy.
+
+VI. 
+
+```{r, fig.width=7}
+life_expectancy_1 <- life_expectancy %>% 
+  select(Country, `Life expectancy`, Year) %>% 
+  filter(Country %in% c("Russian Federation", "United Kingdom of Great Britain and Northern Ireland", "Japan", "Canada", "United States of America", "Mexico", "Brazil", "Argentina", "Peru", "Australia", "New Zealand", "Indonesia", "Swaziland", "Central African Republic", "Egpyt")) %>% 
+  drop_na(Country, `Life expectancy`) %>% 
+  group_by(Country, Year)
+  
+  life_expectancy_1 %>% 
+  ggplot(aes(x = Year, y = `Life expectancy`, color = Country)) +
+  geom_line() +
+    labs(title = "Life Expectancies by Country from 2000 t0 2015", x = "Year", y = "Life Expectancy") +
+    theme_classic()
+```
+
