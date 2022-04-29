@@ -1,0 +1,307 @@
+---
+title: "How has life expectancy changed over the years and what factors have contributed to these changes?"
+subtitle: "Developed vs. Undeveloped Countries"
+authors: "Callum Moir & Gugo Babayan"
+date: "29 April 2022"
+output: 
+  html_document:
+    keep_md: TRUE
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    code_download: true
+    code_folding: hide 
+    theme: cosmo
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error=TRUE, message=FALSE, warning=FALSE)
+```
+
+```{r}
+library(tidyverse)     # for data cleaning and plotting
+library(lubridate)     # for date manipulation
+library(openintro)     # for the abbr2state() function
+library(ggmap)         # for mapping points on maps
+library(gplots)        # for col2hex() function
+library(RColorBrewer)  # for color palettes
+library(sf)            # for working with spatial data
+library(leaflet)       # for highly customizable mapping
+library(ggthemes)      # for more themes (including theme_map())
+library(plotly)        # for the ggplotly() - basic interactivity
+library(gganimate)     # for adding animation layers to ggplots
+library(gifski)        # for creating the gif (don't need to load this library every time,but need it installed)
+library(transformr)    # for "tweening" (gganimate)
+library(shiny)         # for creating interactive apps
+library(patchwork)     # for nicely combining ggplot2 graphs  
+library(gt)            # for creating nice tables
+library(rvest)         # for scraping data
+library(robotstxt)     # for checking if you can scrape data
+library(dplyr)
+library(moderndive)     
+library(broom)          
+library(equatiomatic)   
+library(cowplot)
+library(corrplot)
+theme_set(theme_minimal())
+```
+
+
+```{r}
+#For loading our data set
+life_expectancy <- read_csv("Life Expectancy Data.csv")
+```
+
+
+# Background and Introduction
+
+
+As two friends who have recently started going to the gym, one of the key benefits we always read online is that lifting weights adds years to your life. As such, when searching for a data set for this project, the word "Life Expectancy" piqued our interest. After examining some of the determinants which went into it, we decided that this was the ideal data set for us!
+
+# Data Collection and Cleaning
+
+
+We found this data set on Kaggle - a very useful website full of interesting data sets. Here is the link: https://www.kaggle.com/code/shresthakundu/life-expectancy-who
+
+
+Using data from this data set, we will present multiple visualizations which aim to assess life expectancy differences and changes across countries and years. Moreover, we hope to assess the impacts of certain independent variables such as alcohol consumption and healthcare spending on life expectancy. This will be done by visualizing regressions. (Please note: This is beyond the teachings of this course, but we wanted to seek relationships out of interest, using methods from other Statistics courses.)
+
+
+# Initial Analysis
+
+
+## How is life expectancy distributed when comparing developed countries to underdeveloped ones?
+
+
+```{r, fig.width=10, fig.alt= "Boxplots Showing the distributions and medians across various hand-selected countries."}
+
+life_expectancy_1 <- life_expectancy %>% 
+  select(Country, `Life expectancy`, Year) %>% 
+  filter(Country %in% c("Russian Federation", "United Kingdom of Great Britain and Northern Ireland", "Japan", "United States of America",  "Brazil", "Costa Rica", "Australia", "New Zealand", "Indonesia", "Swaziland", "Central African Republic", "Egpyt")) %>% 
+  drop_na(Country, `Life expectancy`, Year) %>% 
+  group_by(Country, Year)
+  life_expectancy_1[life_expectancy_1== "Russian Federation"] <- "Russia"
+  life_expectancy_1[life_expectancy_1== "United Kingdom of Great Britain and Northern Ireland"] <- "UK"
+  life_expectancy_1[life_expectancy_1== "Central African Republic"] <- "CAR"
+  life_expectancy_1[life_expectancy_1== "United States of America"] <- "USA"
+  
+life_expectancy_1 %>%
+  filter(Country %in% c("Russia", "UK", "Japan", "USA", "Mexico", "Brazil", "Argentina", "Peru", "Australia", "New Zealand", "Indonesia", "Swaziland", "CAR", "Egypt")) %>% 
+  ggplot(aes(color = Country, x = `Life expectancy`)) +
+  labs(title = "Life Expectancies by Country",
+       x = "",
+       subtitle = "Life Expectancy Distributions Across Selected Countries \n As we can see, Japan has the highest median age, while Central African Republic has the lowest.",
+       caption = "By Callum Moir & Gugo Babayan") +
+  theme_classic() + 
+  theme(plot.title.position = "plot",
+        plot.title = element_text(size = 20, face = "bold"),
+        plot.subtitle = element_text(size = 10, face = "italic")) +
+  geom_boxplot() +
+  geom_vline(aes(xintercept = median(`Life expectancy`, na.rm = TRUE)), color = "blue")
+```
+
+
+In this initial graph, we have hand-selected 10 countries from across the world according to personal associations and/or whether or not they are classified as 'developed' or 'developing' according to the data set. The blue line illustrates the median life expectancy of these countries combined, and shows that 5 of the selected countries fall on either side of this divide. Japan tops the life expectancy, while the Central African Republic (CAR) is at the bottom.
+
+
+This next plot nicely supports our point that developed countries have much higher average life expectancies than developing ones:
+
+
+```{r, eval=FALSE,fig.height= 4, fig.width=8, fig.alt= "Animation showing how average life expectancy has changed in developed countries vs. in developing countries"}
+life_expectancy %>% 
+  drop_na(`Life expectancy`) %>% 
+  ggplot(aes(x=Year,y= `Life expectancy`, color=Status))+
+  geom_jitter()+
+  geom_smooth(method = "lm", color = "black")+
+  transition_states(Status, 
+                    transition_length = 2, 
+                    state_length = 1) +
+  exit_shrink() +
+  enter_recolor(color = "lightblue") +
+  exit_recolor(color = "lightblue")+
+  labs(title = "Average Life Expectancy According to Country Status",
+       subtitle = "Status: {closest_state}",
+       x = "",
+       y = "Life Expectancy")+
+theme(legend.position = "none")
+anim_save("status_anim.gif")
+```
+
+
+```{r}
+knitr::include_graphics("status_anim.gif")
+```
+
+
+This graph shows the differences in life expectancy according to your country's development status. The red data points represent developed countries, while the blue represents developing countries. The animation makes it clear, through the black regression line, that the average life expectancy for developed countries is much higher than for developing ones.
+
+
+```{r, eval= FALSE, fig.alt= "Plot showing how life expectancy has accumulated over time in developed coiuntries vs. in developing countries"}
+life_expectancy %>% 
+  group_by(Year, Status) %>% 
+  summarize(LE_time = sum(`Life expectancy`)) %>% 
+  ungroup() %>% 
+  complete(Status, Year, 
+           fill = list(LE_time = 0)) %>% 
+  mutate(variety = fct_reorder(Status, 
+                               LE_time, 
+                               sum, 
+                               .desc = FALSE)) %>% 
+  group_by(Status) %>% 
+  mutate(cum_LE_time = cumsum(LE_time)) %>% 
+  ggplot(aes(x = Year, 
+             y = cum_LE_time, 
+             fill = Status)) +
+  geom_area(position = "stack") +
+  geom_text(aes(label = Status),
+            position = "stack", 
+            check_overlap = TRUE) +
+  scale_fill_viridis_d(option = "magma") +
+  theme(legend.position = "none") +
+  transition_reveal(Year)  +
+  labs(title = "Cumulative Life Expectancy",
+       subtitle = "Year: {frame_along}",
+       x = "",
+       y = "")
+anim_save("Rate.gif")
+```
+```{r}
+knitr::include_graphics("Rate.gif")
+```
+
+
+This animation takes the cumulative life expectancies from developed and developing countries from 2000-2015. It nicely illustrates that since 2000, the gap between life expectancies in developed countries has increased at a faster rate relative to that of developing countries.
+
+
+## Comparing the Selected Countries With by Examining Changes over Time
+
+
+These next graphs illustrate how our selected countries differ in life expectancies and rates of improvement over the years.
+
+
+```{r, fig.width=18, fig.height=12, fig.alt="Interactive plots showing how life expectancy has increased/descreased over time in our selected countries"}
+life_expectancy_1 <- life_expectancy %>% 
+  select(Country, `Life expectancy`, Year) %>% 
+  filter(Country %in% c("Russian Federation", "United Kingdom of Great Britain and Northern Ireland", "Japan", "United States of America",  "Brazil", "Costa Rica", "Australia", "New Zealand", "Indonesia", "Swaziland", "Central African Republic", "Egpyt")) %>% 
+  drop_na(Country, `Life expectancy`, Year) %>% 
+  group_by(Country, Year)
+
+  life_expectancy_1[life_expectancy_1== "Russian Federation"] <- "Russia"
+  life_expectancy_1[life_expectancy_1== "United Kingdom of Great Britain and Northern Ireland"] <- "UK"
+  life_expectancy_1[life_expectancy_1== "Central African Republic"] <- "CAR"
+  life_expectancy_1[life_expectancy_1== "United States of America"] <- "USA"
+
+  life_graph<- life_expectancy_1 %>% 
+  ggplot(aes(x = Year, y = `Life expectancy`, color = Country)) +
+  geom_line() +
+    labs(title = "Life Expectancies by Country from 2000 to 2015", subtitle = "Date: 2000 to 2015", x =             element_blank(), y = element_blank())+
+    theme(legend.position = "none")+
+    facet_wrap("Country", scales = "free_y")+
+    theme(
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank())
+  ggplotly(life_graph)
+```
+
+
+The above interactive graph allows you to hover over the years to see what each country's life expectancy was during that time period. They also show how each country's life expectancy has grown over time. We see that the USA's has grown quite constantly, while the UK's has dipped in more recent years.
+
+
+
+```{r, fig.width=18, fig.height=12, eval = FALSE, fig.alt= "Animation showing how our selected countries' life expectancies have changed over time relative to one another"}
+life_expectancy_1 <- life_expectancy %>% 
+  select(Country, `Life expectancy`, Year) %>% 
+  filter(Country %in% c("Russian Federation", "United Kingdom of Great Britain and Northern Ireland", "Japan", "United States of America",  "Brazil", "Costa Rica", "Australia", "New Zealand", "Indonesia", "Swaziland", "Central African Republic", "Egpyt")) %>% 
+  drop_na(Country, `Life expectancy`, Year) %>% 
+  group_by(Country, Year)
+
+  life_expectancy_1[life_expectancy_1== "Russian Federation"] <- "Russia"
+  life_expectancy_1[life_expectancy_1== "United Kingdom of Great Britain and Northern Ireland"] <- "UK"
+  life_expectancy_1[life_expectancy_1== "Central African Republic"] <- "CAR"
+  life_expectancy_1[life_expectancy_1== "United States of America"] <- "USA"
+
+ life_expectancy_1 %>% 
+  ggplot(aes(x = Year, y = `Life expectancy`, color = Country)) +
+  geom_line() +
+    labs(title = "Life Expectancies by Country from 2000 to 2015", subtitle = "Date: 2000 to 2015", x =             element_blank(), y = element_blank()) +
+    transition_reveal(Year)
+ anim_save("Test.gif")
+```
+```{r}
+knitr::include_graphics("Test.gif")
+```
+
+
+This graph shows the same trends as the one above, but makes it easier for the viewer to compare these countries' rates of life expectancy growth over time, and to see how low some are relative to others.
+
+
+## Using Regressions to Determine Trends of other Variables
+
+
+```{r, fig.width=10, fig.alt= "Regression Graphs showing how alcohol consumption and healthcare spending affect life expectancy across the selected countries"}
+plot1 <- life_expectancy %>%
+  filter(Country %in% c("Russian Federation", "United Kingdom of Great Britain and Northern Ireland", "Japan", "United States of America",  "Brazil", "Australia", "New Zealand")) %>%
+  group_by(Country) %>% 
+  drop_na(Alcohol) %>% 
+  ggplot(aes(x = Alcohol, y = `Life expectancy`)) +
+  geom_jitter() +
+  geom_smooth(method = "lm") +
+  labs(x = "Alcohol Consumption (Percentage of Population)", y = "Life Expectancy")
+
+plot2 <- life_expectancy %>%
+  filter(Country %in% c("Russian Federation", "United Kingdom of Great Britain and Northern Ireland", "Japan", "United States of America",  "Brazil", "Australia", "New Zealand")) %>%
+  group_by(Country) %>% 
+  drop_na(`Total expenditure`) %>% 
+  ggplot(aes(x = `Total expenditure`, y = `Life expectancy`)) +
+  geom_jitter() +
+  geom_smooth(method = "lm") +
+  labs(x = "Percentage of Government Spending on Healthcare", y = "Life Expectancy")
+
+plot_grid(plot1, plot2, labels = "AUTO")
+```
+
+
+To expand on our findings, we decided to conduct our own research into regressions and correlations in order to determine relationships between certain variables and life expectancies. In the above graph, we can see that on average, across our selected countries, there is a strong negative correlation between alcohol consumption and life expectancy. That is, as alcohol consumption increases, life expectancy tends to fall. 
+The graph next to it shows a strong positive correlation between the percentage of government spending on healthcare and life expectancy. That is, as the governments across these countries spends a higher percentage of their budget on improving healthcare, life expectancy tends tio increase.
+
+
+
+```{r, fig.align='left', fig.height=10, fig.width=12, "Correlation Plots showing overall correlations between life expectancy and our independent variables - the first shows the results for developed countries, and the second shows the results for developing countries"}
+correlation1<- life_expectancy %>% 
+  filter(Status=="Developed") %>%
+  select(-Year, -Country, -Status) %>% 
+  drop_na()
+correlation_anim<-
+corrplot(cor(correlation1),type="upper",method="circle",title="Correlation plot between variables",mar=c(0.1,0.1,0.1,0.1), insig="blank", na.label = " ")
+```
+
+```{r, fig.align='left', fig.height=10, fig.width=12}
+correlation2<- life_expectancy %>% 
+  filter(Status=="Developing") %>%
+  select(-Year, -Country, -Status) %>% 
+  drop_na()
+correlation_anim<-
+corrplot(cor(correlation2),type="upper",method="circle",title="Correlation plot between variables",mar=c(0.1,0.1,0.1,0.1), insig="blank")
+```
+General Introduction to the Plots:
+We wanted to find out how the variables provided by the data correlate to each other but most importantly to the average life expectancy numbers. This is done through a correlation matrix in the figure below. On the correlation plot, the size of the circles represents the amount of correlation between the variables; the bigger the circle the more there is correlation, whereas the colour represents if there is negative(red) or positive(blue) correlation. 
+
+We divided the countries into their status categories (developed and developing) in order to visualize the change in certain variables' influence on life expectancy based on the status of the country. 
+
+
+Plot 1:
+The first illustration deals only with the developed countries. The calculations show that “thinnes 1-19 years”, “thinness 5-9 years”, and “adult mortality” have the biggest negative correlation with life expectancy. This means that when any of these three factors increases the life expectancy decreases in developed countries. In contrast, when “percentage expenditure [on health]”, “schooling”, and “Income composition of resources' ' increase then the life expectancy also tends to increase in developed countries.
+
+Plot 2:
+
+What refers to the developing countries, “HIV/AIDS” becomes the biggest factor negatively influencing life expectancy rates alongside “thinness” and “adult mortality” rates. The biggest positive variables on life expectancy are “schooling” and a proper Body Mass Index, “BMI”, which was not the case for developing countries.
+
+
+
+## Overall Conclusion and Limitations
+
+
+The main findings we took from our project are (i) there is a clear distinction between life expectancies in developed vs. developing countries. Developed countries tend to have higher life expectancies, while developing countries tend to have much lower life expectancies. Furthermore, we can see that the life expectancies over time in developed countries is increasing at a much faster rate than that in developing countries. (ii) Increased alcohol consumption tends to decrease life expectancy, while increased government spending on healthcare tends to increase life expectancy. The correlation plots illustrate how high or low life expectancy rates are related to different set of factors in developing countries versus developed countries meaning there should be 2 different approaches to solve the issues of low life expectancy.
+
+
+
